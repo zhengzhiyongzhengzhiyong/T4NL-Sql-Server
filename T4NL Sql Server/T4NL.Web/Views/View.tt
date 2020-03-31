@@ -1,0 +1,277 @@
+﻿<#@ template debug="debug" hostspecific="true" language="C#" #>
+<#@ import namespace="System.Diagnostics" #>
+<#@ include file="$(SolutionDir)\T4NL.Models\T4Manager.ttinclude"  #>
+<#@ include file="$(SolutionDir)\T4NL.Models\DbHelper.ttinclude"  #>
+<# 
+     
+ 
+     var manager = Manager.Create(Host, GenerationEnvironment);
+     var entities = DBHelper.GetEntities();
+ 
+     foreach(Entity entity in entities)
+     {
+	     manager.StartNewFolder(entity.EntityName);
+         manager.StartNewFile(entity.EntityName + "/index.cshtml");
+ #>
+
+
+@{
+    ViewBag.Title = "<#= entity.EntityName #>";
+}
+
+<style type="text/css">
+    .m-left .dropdown-menu {
+        left:-107px;
+    }
+</style>
+@Styles.Render("~/Content/BootstrapTable")
+@Scripts.Render("~/bundles/BootstrapTable")
+@Styles.Render("~/Content/daterangepicker")
+@Scripts.Render("~/bundles/daterangepicker")
+
+<script type="text/javascript">
+        $(function() {
+            initTable();
+
+            $('input[name="daterange"]').daterangepicker(
+                {
+                    autoUpdateInput: false
+                },
+                function (start, end, label) {
+                    $('input[name="daterange"]').val(start.format('YYYY-MM-DD') + '—' + end.format('YYYY-MM-DD'));
+                }
+            );
+
+            $(".fa-search").click(function () {
+                $table.bootstrapTable('refresh');
+                return false;
+            });
+
+        });
+
+        function initTable() {
+                    var queryUrl = '@Url.Content("~/<#=entity.EntityName#>/GetLists")' + '?rnd=' + +Math.random();
+                    $table = $("#showData").bootstrapTable({
+                        columns: [
+                            {
+                                'title': 'state',
+                                checkbox: true,
+                                align: 'center',
+                                valign: 'middle',
+								footerFormatter: totalTextFormatter
+                            },
+							<# for(int i=0;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#>
+						    {
+                                'title': '<#= c.columnName #>', 'field': '<#= c.columnName #>', align: 'center', sortable: true
+                                <#if(c.sqlDateType.ToLower()=="decimal" || c.sqlDateType.ToLower()=="int") { #>
+                                 , footerFormatter: sumFormatter
+								<#} #>
+								<#if(c.sqlDateType.ToLower()=="datetime" || c.sqlDateType.ToLower()=="date" || c.sqlDateType.ToLower()=="datetime2" ||  c.sqlDateType.ToLower()=="datetimeoffset" ) { #>
+								, formatter: function (value, row, index) {
+                                     return value.ToDateFormatFormMillisecond();
+                                }
+								  
+								<#} #>
+                            },
+							<#}#>
+
+						   <#
+							  if(entity.TableType=="u")
+							  {
+							#>
+							{
+                                'title': '操作', 'field': 'Id', align: 'center', formatter: function (value, row, index) {
+                                    var v = '<span class="btn-group m-left"> \
+                                             <a href="#" data-toggle="dropdown" class="btn btn-default btn-xs dropdown-toggle" aria-expanded="false">操作&nbsp;&nbsp;<span class="caret single"></span></a> \
+                                             <ul class="dropdown-menu">';
+                                    v += '<li>  \
+                                                <a href="#"><i class="glyphicon glyphicon-trash"></i>&nbsp;&nbsp;刪除</a> \
+                                          </li>';
+                                    v += '<li>  \
+                                                <a href="#"><i class="glyphicon glyphicon-edit"></i>&nbsp;&nbsp;修改</a> \
+                                          </li>';
+
+                                    v += '</ul>';
+                                    v += '</span>';
+                                    return v;
+                                }
+                            }
+						   <#}#>
+
+
+                        ],
+                        url: queryUrl,
+                        method: 'post',
+                        toolbar: '#toolbar',
+                        contentType: "application/x-www-form-urlencoded",
+                        search: false,
+                        sortName: '<#=entity.Fields[0].columnName#>',
+                        idField: '<#=entity.Fields[0].columnName#>',
+                        uniqueId: '<#=entity.Fields[0].columnName#>',
+                        pagination: true,
+                        showFooter: true,
+                        showFullscreen:false,
+                        sortOrder: 'desc',
+                        sortable: true,
+                        showExport: true,
+                        exportDataType: "basic",
+                        pageSize: 10,
+                        pageNumber: 1,
+                        locale: 'zh-CN',
+                        showColumns:true,
+                        detailView: false,
+                        showRefresh: true,
+                        sidePagination: "server",
+                        showToggle: true,
+                        exportTypes: ['excel', 'pdf','json','txt', 'sql'],
+                        classes:"table table-no-bordered",// Table Style
+                        pageList: [20, 50, 100, 500, 1000, 2000],
+                        queryParams: function (params) { return queryParamsFormatter(params) },
+                        onLoadSuccess: function (data) {  },
+                        onRefresh: function (params) {  },
+                        onPageChange: function (number, size) { },
+                        onLoadError: function (status) { },
+                        onEditableSave: function (field, row, oldValue, $el) {
+                            onEditableSave(field, row, oldValue, $el);
+                        },
+                        onSort: function (name, order) {
+                        },
+                        onCheck: function (row, $el) {
+                        },
+                        onCheckAll: function (row) {
+                        },
+                        onUncheck: function (row, $el) {
+                        },
+                        onUncheckAll: function (row) {
+                        },
+                        onCheckSome: function (row) {
+                        },
+                        onUncheckSome: function (row) {
+                        },
+                        exportOptions: {
+                            fileName: '@ViewBag.Title',
+                            displayTableName: true,
+                            tableName: '@ViewBag.Title',
+                            ignoreColumn: [0, 1],
+                            pdfmake: {
+                                enabled: true,
+                                docDefinition: {
+                                    header: {
+                                        columns: [
+                                            { text: '@ViewBag.Title', alignment: 'center' }
+                                        ]
+                                    },
+                                    footer: {
+                                        columns: [
+                                            { text: (new Date()).toLocaleString(), alignment: 'center' }
+                                        ]
+                                    },
+                                    pageOrientation: "portrait",
+                                    defaultStyle: {
+                                        font: "fzytk"
+                                    },
+                                    styles: {
+                                        header: {
+                                            fontSize: 22,
+                                            bold: true,
+                                            alignment: 'center'
+                                        },
+                                        anotherStyle: {
+                                            italics: true,
+                                            alignment: 'center'
+                                        }
+                                    }
+                                },
+                            }
+                        }
+            });
+        }
+
+        //查询参数
+        function queryParamsFormatter(params) {
+            return {
+                pageSize: params.limit,
+                pageIndex: (params.offset / params.limit) + 1,
+                search: $("input[name='search']").val(),
+                order: params.order,
+                orderName: params.sort,
+                dateTime: $("input[name='daterange']").val()
+            }
+        }
+
+        //求和
+        function sumFormatter(data) {
+            var field = this.field;
+            return (data.reduce(function (sum, row) {
+                return sum + (+row[field]);
+            }, 0)).toFixed(2);
+        }
+
+	    <#
+		  if(entity.TableType=="u")
+		  {
+		#>
+        //修改表记录
+        function onEditableSave(field, row, oldValue, $el) {
+                $.ajax({
+                    type: "POST",
+                    url: "/<#=entity.EntityName#>/Modify",
+                    data: row,
+                    success: function(res) {
+                        $table.bootstrapTable('refresh');
+                        if (res.Status == "ok") {
+                            alert(res.Message);
+                        } else {
+                            alert(res.Message);
+                        }
+                    }, error: function () {
+                    }
+                });
+       }
+	   <#}#>
+
+    //Remove Items
+    function remove() {
+        var items = $table.bootstrapTable('getSelections');
+    }
+
+    //
+    function totalTextFormatter(data) {
+        return 'Total';
+    }
+</script>
+
+<div class="well">
+    <div class="panel-body" style="width:100%;">
+        <div id="toolbar" class="input-group smart-form">
+            <div class="input-group">
+                <label class="input">
+                    <i class="icon-prepend fa fa-calendar"></i>
+                    <i class="icon-append fa fa-search"></i>
+                    <input type="text" class="form-control" name="daterange" placeholder="时间">
+                </label>
+                <label class="input marginLeft15">
+                    <i class="icon-append fa fa-search"></i>
+                    <input type="text" class="form-control" placeholder="关键字" name="search">
+                </label>
+			    <#
+				  if(entity.TableType=="u")
+				  {#>
+                <button type="button" class="btn btn-default marginLeft15"><i class="fa fa-plus"></i>&nbsp;添加</button>
+                <button type="button"  onclick="remove();" class="btn btn-default marginLeft15"><i class="glyphicon glyphicon-trash"></i>&nbsp;删除</button>
+			   <#}#>
+
+            </div>
+            
+        </div>
+        <table id="showData"></table>
+    </div>
+</div>
+
+
+  <#        
+         manager.EndBlock(); 
+     }
+ 
+     manager.Process(true);
+ #>

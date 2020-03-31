@@ -1,0 +1,270 @@
+﻿<#@ template debug="debug" hostspecific="true" language="C#" #>
+<#@ import namespace="System.Diagnostics" #>
+<#@ include file="$(SolutionDir)\T4NL.Models\T4Manager.ttinclude"  #>
+<#@ include file="$(SolutionDir)\T4NL.Models\DbHelper.ttinclude"  #>
+<# 
+     
+
+ 
+     var manager = Manager.Create(Host, GenerationEnvironment);
+     var entities = DBHelper.GetEntities();
+ 
+     foreach(Entity entity in entities)
+     {
+         manager.StartNewFile(entity.EntityName + "DAL.cs");
+ #>
+ using System.Text;
+ using System.Collections.Generic; 
+ using System.Data;
+ using T4NL.Models;
+ using T4NL.Common;
+ using System.Data.SqlClient;
+ using System;
+
+ namespace T4NL.DAL
+ {
+      public partial class <#= entity.EntityName+"DAL" #>
+      {
+		private SqlDataReader _reader;
+
+		<#
+		  if(entity.TableType=="u")
+		  {
+		#>
+
+		 /// <summary>
+        /// 得到最大ID
+        /// </summary>
+        public int GetMaxId()
+        {
+            return DbHelperSQL.GetMaxID("<#=entity.Fields[0].columnName #>", "<#=entity.EntityName#>");
+        }
+
+		/// <summary>
+        /// 判断是否存在
+        /// </summary>
+	    public bool Exists(<#=entity.Fields[0].dataType #> <#=entity.Fields[0].columnName #>)
+		{
+			StringBuilder strSql=new StringBuilder();
+			strSql.Append("select count(1) from <#= entity.EntityName #>");
+			strSql.Append(" where <#=entity.Fields[0].columnName #>=@<#=entity.Fields[0].columnName #>");
+
+			SqlParameter[] parameters = {
+                    new SqlParameter("@<#=entity.Fields[0].columnName #>", SqlDbType.<#=entity.Fields[0].sqlDateType#>,<#=entity.Fields[0].maxLength#>)
+            };
+
+			parameters[0].Value = <#=entity.Fields[0].columnName #>;
+           
+		     return DbHelperSQL.Exists(strSql.ToString(), parameters);
+		}
+
+
+	    /// <summary>
+		/// 增加一条数据
+		/// </summary>
+		public int Add(<#= entity.EntityName #> model)
+		{
+			StringBuilder strSql=new StringBuilder();
+			strSql.Append("insert into <#= entity.EntityName  #>(");			
+            strSql.Append(" <# for(int i=1;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#><#= c.columnName #><# if (i< entity.Fields.Count-1 ) {#>,<#}#><#}#>");
+			strSql.Append(") values (");
+			strSql.Append(" <# for(int i=1;i< entity.Fields.Count;i++) {   Field c = entity.Fields[i];#><#= "@"+c.columnName#><# if (i< entity.Fields.Count-1 ) {#>,<#}#><#}#>");
+            strSql.Append(") ");
+			strSql.Append(";select @@IDENTITY");
+
+		    SqlParameter[] parameters = {
+			<# for(int i=1;i< entity.Fields.Count;i++)
+            {   
+                Field c = entity.Fields[i];
+            #>
+               new SqlParameter("@<#=c.columnName#>", SqlDbType.<#=entity.Fields[i].sqlDateType#>,<#=entity.Fields[i].maxLength#>)<# if (i< entity.Fields.Count-1 ){#>,<#}#>            
+            <#}#>  
+            };
+
+		    <# for(int i=1;i< entity.Fields.Count;i++)
+            {   
+                Field c = entity.Fields[i];
+            #>
+			parameters[<#= i-1 #>].Value = model.<#=entity.Fields[i].columnName#>;          
+            <#}#>  
+
+	        object obj = DbHelperSQL.GetSingle(strSql.ToString(),parameters);
+			if (obj == null)
+			{
+				return 0;
+			}
+			else
+			{
+				return Convert.ToInt32(obj);
+			}
+		}
+
+	    /// <summary>
+		/// 更新一条数据
+		/// </summary>
+		public bool Update(<#= entity.EntityName #> model)
+		{
+		    StringBuilder strSql=new StringBuilder();
+			strSql.Append("update <#= entity.EntityName #> set ");
+
+			<# for(int i=1;i< entity.Fields.Count;i++)
+            {   
+                Field c = entity.Fields[i];
+            #>
+			strSql.Append(" <#= entity.Fields[i].columnName#> = <#="@"+entity.Fields[i].columnName#><#if(i<entity.Fields.Count-1){#>,<#}#> ");           
+            <#}#>
+			strSql.Append(" where <#=entity.Fields[0].columnName#> = <#="@"+entity.Fields[0].columnName#>");
+
+		    SqlParameter[] parameters = {
+			<# for(int i=0;i< entity.Fields.Count;i++)
+            {   
+                Field c = entity.Fields[i];
+            #>
+               new SqlParameter("@<#=c.columnName#>", SqlDbType.<#=entity.Fields[i].sqlDateType#>,<#=entity.Fields[i].maxLength#>)<# if (i< entity.Fields.Count-1 ){#>,<#}#>            
+            <#}#>  
+            };
+
+		    <# for(int i=0;i< entity.Fields.Count;i++)
+            {   
+                Field c = entity.Fields[i];
+            #>
+			parameters[<#= i #>].Value = model.<#=entity.Fields[i].columnName#>;          
+            <#}#> 
+
+		    int rows=DbHelperSQL.ExecuteSql(strSql.ToString(),parameters);
+			if (rows > 0)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+	    /// <summary>
+		/// 删除一条数据
+		/// </summary>
+		public bool Delete(<#=entity.Fields[0].dataType #> <#=entity.Fields[0].columnName #>)
+		{
+			
+			StringBuilder strSql=new StringBuilder();
+			strSql.Append("delete from <#= entity.EntityName #> ");
+			strSql.Append(" where <#=entity.Fields[0].columnName#>=@<#=entity.Fields[0].columnName#> ");
+						SqlParameter[] parameters = {
+					new SqlParameter("@<#=entity.Fields[0].columnName#>",  SqlDbType.<#=entity.Fields[0].sqlDateType#>,<#=entity.Fields[0].maxLength#>)			};
+			parameters[0].Value = <#=entity.Fields[0].columnName#>;
+
+            int rows=DbHelperSQL.ExecuteSql(strSql.ToString(),parameters);
+			if (rows > 0)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+	   <#}#>
+		/// <summary>
+		/// 得到一个对象实体
+		/// </summary>
+		public <#= entity.EntityName #> GetModel(<#=entity.Fields[0].dataType #> <#=entity.Fields[0].columnName #>)
+		{
+			
+			StringBuilder strSql=new StringBuilder();
+			strSql.Append("select  <# for(int i=0;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#><#= c.columnName #><# if (i< entity.Fields.Count-1 ) {#>,<#}#><#}#>  ");			
+			strSql.Append("  from <#= entity.EntityName #> ");
+			strSql.Append(" where <#=entity.Fields[0].columnName #>=@<#=entity.Fields[0].columnName #> ");
+						SqlParameter[] parameters = {
+					new SqlParameter("@<#=entity.Fields[0].columnName #>",  SqlDbType.<#=entity.Fields[0].sqlDateType#>,<#=entity.Fields[0].maxLength#>)			};
+			parameters[0].Value =<#=entity.Fields[0].columnName #>;
+
+			_reader = DbHelperSQL.ExecuteReader(strSql.ToString(), parameters);
+
+			<#= entity.EntityName #> model =null;
+			while (_reader.Read())
+            {
+			    model = new <#= entity.EntityName #>{
+				   <# for(int i=0;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#>
+
+				       <#=c.columnName #>=_reader["<#= c.columnName #>"].<#=SqlServerDbTypeMap.DbTypeHelper(c.dataType)#><# if(i< entity.Fields.Count-1){#>,<#}#>
+				   <#}#>
+
+				};
+			}
+
+			_reader.Close();
+
+			return model;
+	    }
+
+
+		/// <summary>
+		/// 得到几个对象集合
+		/// </summary>
+		public List<<#= entity.EntityName #>> GetTopLists(int topNum)
+		{
+			
+			StringBuilder strSql=new StringBuilder();
+			strSql.Append($"select  Top {topNum} <# for(int i=0;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#><#= c.columnName #><# if (i< entity.Fields.Count-1 ) {#>,<#}#><#}#>  ");			
+			strSql.Append("  from <#= entity.EntityName #> ");
+			strSql.Append(" Order by <#=entity.Fields[0].columnName #> desc ");
+
+			_reader = DbHelperSQL.ExecuteReader(strSql.ToString());
+
+			List<<#= entity.EntityName #>> list=new List<<#=entity.EntityName#>>();
+			while (_reader.Read())
+            {
+			    list.Add(new <#= entity.EntityName #>{
+				   <# for(int i=0;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#>
+
+				       <#=c.columnName #>=_reader["<#= c.columnName #>"].<#=SqlServerDbTypeMap.DbTypeHelper(c.dataType)#><# if(i< entity.Fields.Count-1){#>,<#}#>
+				   <#}#>
+
+				});
+			}
+
+			_reader.Close();
+
+			return list;
+	    }
+
+
+		/// <summary>
+		/// 分页
+		/// </summary>
+		public List<<#=entity.EntityName#>> GetPage(string orderName, string order, int pageIndex, int pageSize,<# if(!String.IsNullOrEmpty(entity.DateTimeColumnName)) {#> string stime, string etime, <#}#>string search,out int total)
+		{
+			
+			StringBuilder SqlWhere=new StringBuilder();
+			<# if(!String.IsNullOrEmpty(entity.DateTimeColumnName)) {#> 
+			SqlWhere.Append($" <#= entity.DateTimeColumnName#>>='{stime}' AND <#= entity.DateTimeColumnName#><'{etime}' "); 
+			<#}#>
+
+			SqlCommand comm =  Paging.PageData("<#=entity.EntityName#>","*",orderName,order, SqlWhere.ToString(), pageSize,pageIndex);
+			_reader = comm.ExecuteReader(CommandBehavior.CloseConnection);
+			List<<#=entity.EntityName#>> list = new List<<#=entity.EntityName#>>();
+			while (_reader.Read())
+            {
+			    list.Add(new <#= entity.EntityName #>{
+				   <# for(int i=0;i<entity.Fields.Count;i++) { Field c = entity.Fields[i];#>
+
+				       <#=c.columnName #>=_reader["<#= c.columnName #>"].<#=SqlServerDbTypeMap.DbTypeHelper(c.dataType)#><# if(i< entity.Fields.Count-1){#>,<#}#>
+				   <#}#>
+
+				});
+			}
+			_reader.Close();
+		    total = comm.Parameters[7].Value.ToInt_V();
+			return list;
+	    }
+      }
+ }
+
+  <#        
+         manager.EndBlock(); 
+     }
+ 
+     manager.Process(true);
+ #>

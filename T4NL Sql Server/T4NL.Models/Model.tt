@@ -1,0 +1,85 @@
+﻿<#@ template debug="debug" hostspecific="true" language="C#" #>
+<#@ import namespace="System.Diagnostics" #>
+<#@ include file="$(SolutionDir)\T4NL.Models\T4Manager.ttinclude"  #>
+<#@ include file="$(SolutionDir)\T4NL.Models\DbHelper.ttinclude"  #>
+
+<#@ output extension=".cs" #>
+<# 
+     // 是否是WCF服务模型
+     bool serviceModel = false;
+     
+ 
+     var manager = Manager.Create(Host, GenerationEnvironment);
+     var entities = DBHelper.GetEntities();
+ 
+     foreach(Entity entity in entities)
+     {
+         manager.StartNewFile(entity.EntityName + ".cs");
+ #>
+ using System;
+ <#    if(serviceModel)
+     {
+ #>
+ using System.Runtime.Serialization;
+ <#
+     }
+ #>
+ 
+ namespace T4NL.Models
+ {
+     /// <summary>
+     /// <#= entity.EntityName #> Entity Model
+     /// </summary>    
+     [Serializable]
+ <#    if(serviceModel)
+     {
+ #>
+     [DataContract]
+ <#
+     }
+ #>
+     public class <#= entity.EntityName #>
+     {     
+<#
+     for(int i = 0; i < entity.Fields.Count; i++)
+     {
+             if(i ==0){
+ #>        /// <summary>
+		   /// <#= entity.Fields[i].columnComment.Replace("\r\n", ",") #>
+           /// </summary>
+ <#    if(serviceModel)
+       {
+ #>
+         [DataMember]
+ <#
+       }
+ #>
+         public <#= SqlServerDbTypeMap.GetModelCSharpType(entity.Fields[i].dataType) #> <#= entity.Fields[i].columnName #> { get; set; }
+ <#
+        }
+             else{
+ #>    
+         /// <summary>
+         /// <#= entity.Fields[i].columnComment.Replace("\r\n", ",")  #>
+         /// </summary>
+ <#     if(serviceModel)
+        {
+ #>
+         [DataMember]
+ <#
+        }
+ #>
+         public <#= SqlServerDbTypeMap.GetModelCSharpType(entity.Fields[i].dataType) #> <#= entity.Fields[i].columnName #> { get; set; }
+ <#            }
+         }
+ #>
+
+
+     }
+ }
+ <#        
+         manager.EndBlock(); 
+     }
+ 
+     manager.Process(true);
+ #>
